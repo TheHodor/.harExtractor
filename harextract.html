@@ -1,7 +1,16 @@
 <!--
-    HARExtract 0.9.2
-    Copyright (C) 2021-2022, Jason Cipriani <jason.cipriani.dev ~ gmail.com>
-    HARExtract home page: https://www.github.com/JC3/harextract
+    HARExtract 1.0.2 (Forked & Modified)
+    Original project: https://www.github.com/JC3/harextract
+
+    Original Copyright (C) 2021-2022, Jason Cipriani <jason.cipriani.dev ~ gmail.com>
+
+    This fork contains modifications by:
+    [Your Name / GitHub Username]
+    https://github.com/[your-username]/[your-repo]
+
+    Changes include bug fixes, improvements, and updates to the original codebase.
+
+    --------------------------------------------------------------------------
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,405 +24,740 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
-    
+
     --------------------------------------------------------------------------
-    
+
     HARExtract uses the library JSZip 3.7.1 released under the GPLv3 license.
     JSZip Copyright (C) 2009-2016 Stuart Knightley
     JSZip home page: https://stuk.github.io/jszip/
     JSZip license: https://github.com/Stuk/jszip/blob/v3.7.1/LICENSE.markdown
 -->
+    
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>const HAREXTRACT_VERSION = '0.9.2';</script> <!-- KEEP THIS UPDATED! -->
-<title>HAR Extractorr</title>
-<style>
-.closed .ifopen { display: none; }
-.open .ifclosed { display: none; }
-.zipidle .ifzipbusy { display: none; }
-.zipbusy .ifzipidle { display: none; }
-.invisible, .ifnewrelease { display: none; }
-.newrelease .ifnewrelease { display: initial; }
-:root, input, button, select {
-    font-family: Tahoma,Helvetica,Arial,sans-serif;
-    font-size: medium;
-}
-body, html {
-    margin: 0;
-    padding: 0;
-}
-.section {
-    padding: 1em;
-    text-align: center;
-}
-.section > table {
-    margin: 0 auto;
-}
-table {
-    border: 2px solid #444;
-    border-collapse: collapse;
-}
-td {
-    font-size: 90%;
-}
-th, td {
-    border: 1px solid #aaa;
-    padding: 0.1em 1em;
-}
-th, .fileinfo td:first-child {
-    background: #fec;
-}
-#skippedinfo th {
-    background: #fcc;
-}
-.fileinfo td:first-child {
-    font-weight: bold;
-}
-.fileinfo td:first-child::after {
-    content: ':';
-}
-#entryinfo td:nth-child(1), #entryinfo td:nth-child(4) {
-    text-align: right;
-}
-.legal {
-    font-size: 75%;
-    color: #888;
-    border-top: 1px solid #888;
-    background: #eee;
-}
-.legal > div {
-    padding: 0.25em 0;
-    white-space: nowrap;
-}
-.titlebar {
-    color: #888;
-    border-bottom: 1px solid #888;
-    background: #eee;
-    position: relative;
-}
-.titlebar > div:first-child {
-    font-size: 125%;
-}
-.titlebar > div:last-child {
-    position: absolute;
-    right: 1em;
-    top: 50%;
-    transform: translate(0, -50%);
-}
-#updatelink {
-    font-size: 85%;
-    padding: 0.5em;
-    background: yellow;
-    color: black;
-    border: 1px solid black;
-    border-radius: 3px;
-}
-</style>
-<script>
-let loaded = {};
-function alertError (context, e) {
-    //let details = JSON.stringify(e, Object.getOwnPropertyNames(e), 2);
-    //alert(`Error ${context}: ${e}\n\nDetails:\n\n${details}`);
-    // that's an ugly dialog just do this instead:
-    let summary = `Error ${context}: ${e.message}`;
-    console.log(`harextract: ${summary}`);
-    console.log(e);
-    alert(`${summary}\n\nSee console for details.`);
-}
-function uiSetDocState (isopen) {
-    document.body.classList.remove(isopen ? 'closed' : 'open');
-    document.body.classList.add(isopen ? 'open' : 'closed');
-}
-function uiSetZipState (isbusy) {
-    document.body.classList.remove(isbusy ? 'zipidle' : 'zipbusy');
-    document.body.classList.add(isbusy ? 'zipbusy' : 'zipidle');
-}
-function clearUI () {
-    loaded = {};
-    uiSetDocState(false);
-    uiSetZipState(false);
-    document.querySelectorAll(".clearme").forEach((el) => el.innerHTML = '');
-}
-function strCompare (a, b) {
-    return a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase());
-}
-function loadFailed (e) {
-    clearUI();
-    alertError('loading file', e);
-}
-function openHAR (input) {
-    clearUI();
-    if (!input.files || !input.files.length) {
-        alert('No file selected.');
-    } else {
-        loaded.filename = input.files[0].name;
-        domSetText('harfilename', loaded.filename);
-        let reader = new FileReader();
-        reader.onload = (e) => loadHARText(e.target.result);
-        reader.onerror = (e) => loadFailed(reader.error);
-        reader.readAsText(input.files[0]);
-    }
-}
-function loadHARText (text) {
-    try {
-        loadHARJSON(JSON.parse(text));
-    } catch (e) {
-        loadFailed(e);
-    }
-}
-function loadHARJSON (har) {
-
-    // extract and parse interesting entries
-    let harents = [];
-    let skipped = [];
-    let commonpath = null;
-    for ([id,ent] of har.log.entries.entries()) {
-        let harent = { id: id };
-        let fullpath = new URL(ent.request.url).pathname.split('/');
-        harent.name = fullpath.pop();
-        harent.type = ent.response.content.mimeType; 
-        harent.size = ent.response.content.size;
-        harent.pathcomps = fullpath; // .path string will be set below
-        if (!ent.response.content.text)
-            harent.error = 'No content.';
-        else if (!!ent.response.content.encoding && ent.response.content.encoding != 'base64')
-            harent.error = "Can't decode.";
-        if (harent.error) {
-            console.log(`harextract: skipped ${harent.name} (${id}): ${harent.error}`);
-            skipped.push(harent);
-        } else {
-            commonpath = fullpath.slice(0, [...fullpath,null].findIndex((p, n) => p !== (commonpath||fullpath)[n])); // ;)
-            harents.push(harent); // note: we can now guarantee that if harents has items, commonpath is set.
-        }
-    }
-    
-    // set path strings for all files; for non-skipped files, also strip common path prefixes.
-    harents.forEach(ent => ent.path = ent.pathcomps.slice(commonpath.length).join('/'));
-    skipped.forEach(ent => ent.path = ent.pathcomps.join('/'));
-       
-    let entsort = function (a,b) {
-        let p = strCompare(a.path, b.path);
-        return (p != 0) ? p : strCompare(a.name, b.name);
-    }
-   
-    harents.sort(entsort);
-    skipped.sort(entsort);
-    
-    loaded.data = har.log.entries;
-    loaded.entries = harents;
-    loaded.skipped = skipped;
-
-    // ui stuff from here down
-    
-    domSetText('fileinfo_fversion', har.log.version);
-    domSetText('fileinfo_creator', har.log.creator.name);
-    domSetText('fileinfo_cversion', har.log.creator.version);
-    domSetText('fileinfo_npages', har.log.pages.length);
-    domSetText('fileinfo_nentries', har.log.entries.length);
-
-    let makenamelink = function (ent) {
-        a = document.createElement("a");
-        let enc = har.log.entries[ent.id].response.content.encoding;
-        let data = har.log.entries[ent.id].response.content.text;
-        a.href = `data:${ent.type};${enc},${data}`;
-        a.target = '_blank';
-        a.download = ent.name;
-        a.innerText = ent.name;
-        return a;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <meta name="description" content="HAR Extractor is a free, client-side tool to extract files from HAR (HTTP Archive) files. Open your HAR, preview content, and save everything as a clean ZIP archive.">
+  <meta name="keywords" content="HAR extractor, HAR file viewer, HTTP archive tool, extract HAR, HAR to ZIP, web debug proxy, HAR file opener">
+  <meta name="author" content="Modern redesign based on JC3 HARExtract">
+  <meta name="theme-color" content="#0f172a">
+  <meta property="og:title" content="HAR Extractor - Modern Web Archive Tool">
+  <meta property="og:description" content="Extract, preview, and download files from HAR archives in a clean, animated interface. No uploads, fully private.">
+  <meta property="og:type" content="website">
+  <meta name="robots" content="index, follow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <script>
+    const HAREXTRACT_VERSION = '1.0.2'; 
+  </script>
+  <title>HAR Extractor · File Saver</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
 
-    populateTable('entryinfo', harents, [
-        { name:'ID',       value:(e)=>e.id    },
-        { name:'Filename', value:makenamelink },
-        { name:'Type',     value:(e)=>e.type  },
-        { name:'Size',     value:(e)=>e.size  },
-        { name:'Path',     value:(e)=>e.path  }
-    ]);
-    
-    populateTable('skippedinfo', skipped, [
-        { name:'ID',       value:(e)=>e.id    },
-        { name:'Error',    value:(e)=>e.error },
-        { name:'Filename', value:(e)=>e.name  },
-        { name:'Type',     value:(e)=>e.type  },
-        { name:'Size',     value:(e)=>e.size  },
-        { name:'Path',     value:(e)=>e.path  }
-    ]);
-
-    uiSetDocState(true);
-
-}
-function populateTable (tableid, items, fields) {
-
-    let ebody;
-    {
-        let etable = document.getElementById(tableid);
-        etable.innerHTML = '';
-        let header = etable.createTHead().insertRow();
-        for (field of fields)
-            domAppendTH(header).innerText = field.name;
-        ebody = etable.createTBody();
-    }
-    
-    for (ent of items) {
-        let erow = ebody.insertRow();
-        for (field of fields) {
-            let value = field.value(ent);
-            if (value instanceof Node)
-                erow.insertCell().appendChild(value);
-            else
-                erow.insertCell().innerText = value;
-        }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at 10% 20%, rgba(30, 41, 59, 0.9) 0%, #0f172a 90%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      margin: 0;
+      color: #e2e8f0;
+      transition: background 0.3s ease;
     }
 
-}
-function buildZIP (ents, data) {
-    if (ents.length == 0)
-        throw new Error('There are no files to save.');
-    console.log(`harextract: generating archive with ${ents.length} file(s)...`);
-    let zip = new JSZip();
-    for (ent of ents) {
-        console.log(`harextract: adding ${ent.name} (${ent.id})...`);
-        try {
-            let filepath = `${ent.path}/${ent.name}`;
-            if (filepath.startsWith('/'))
-                filepath = filepath.substring(1);
-            let encoding = data[ent.id].response.content.encoding;
-            if (!!encoding && encoding != 'base64')
-                throw new Error(`Unsupported encoding for ${ent.name} (${ent.id}): ${encoding}`);
-            zip.file(filepath, data[ent.id].response.content.text, { base64: !!encoding });
-        } catch (e) {
-            console.log(e);
-        }
+    /* main card */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 2.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 30px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      width: 100%;
+      max-width: 1300px;
+      padding: 2rem 2.5rem;
+      transition: all 0.3s ease;
+      animation: fadeSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    console.log('harextract: archive ready.');
-    return zip;
-}
-function showZipProgress (m) {
-    domSetText('zipprogress', m.percent.toFixed(0));
-}
-function saveZIP () {
-    try {
-        if (!loaded.entries)
-            throw new Error('No file loaded.');
-        uiSetZipState(true);
-        if (!loaded.zip)
-            loaded.zip = buildZIP(loaded.entries, loaded.data, 0);
-        let comp = parseInt(document.getElementById('compression').value);
-        loaded.zip.generateAsync({
-            type: 'blob',
-            compression: (comp > 0 ? 'DEFLATE' : 'STORE'),
-            compressionOptions: { level: comp }
-        }, showZipProgress).then(function(zipblob) {
-            let zipurl = URL.createObjectURL(zipblob);
-            //window.open(loaded.zipurl);
-            let kludge = document.createElement('a');
-            kludge.href = zipurl;
-            kludge.target = '_blank';
-            kludge.download = `${loaded.filename}.zip`;
-            kludge.innerText = kludge.download;
-            kludge.click();
-            kludge.remove();
-            URL.revokeObjectURL(zipurl);
-        }).finally(function () {
-            uiSetZipState(false);
-        });
-    } catch (e) {
-        uiSetZipState(false);
-        alertError('saving ZIP', e);
-    }    
-}
-function doUpdateCheck () {
-    try {
-        fetch('https://api.github.com/repos/JC3/harextract/releases/latest')
-            .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`)))
-            .then(handleUpdateCheck)
-            .catch(e => console.log(`harextract: Could not check for updates: ${e.message}`));
-    } catch (e) {
-        console.log(`harextract: Could not check for updates: ${e.message}`);
+
+    @keyframes fadeSlideUp {
+      0% { opacity: 0; transform: translateY(30px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
-}
-function handleUpdateCheck (info) {
-    if (info.draft === false && info.prerelease === false && info.html_url) {
-        let makever = v => v.match(/[^.0-9]*([.0-9]+)/)[1].split('.').map(s => parseInt(s));
-        if (makever(info.tag_name) > makever(HAREXTRACT_VERSION)) {
-            document.body.classList.add('newrelease');
-            document.getElementById('updatelink').href = info.html_url
-            document.getElementById('updatelink').title = `New Version: ${info.name}`;
-        }
+
+    /* header section */
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2.5rem;
     }
-}
-// i'd really like this to stay self-contained and offline, so i'm rolling my own
-// dom utility functions instead of using e.g. jquery.
-function domSetText (id, text) {
-    document.querySelector(`#${id}`).innerText = text;
-}
-function domAppendTH (header) { 
-    // todo: shouldn't there be table api for this? insertCell only adds td's.
-    let th = document.createElement('th');
-    return header.appendChild(th);
-}
-document.addEventListener('DOMContentLoaded', () => document.getElementById('version').innerText = HAREXTRACT_VERSION);
-document.addEventListener('DOMContentLoaded', doUpdateCheck);
-</script>
+
+    .logo-area h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #bae6fd 0%, #a5b4fc 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: inline-block;
+      margin-right: 0.75rem;
+    }
+
+    .version-badge {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 0.4rem 1.2rem;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .update-link {
+      background: #fbbf24;
+      color: #0f172a;
+      padding: 0.5rem 1.3rem;
+      border-radius: 2rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.25s;
+      box-shadow: 0 6px 14px rgba(251, 191, 36, 0.3);
+      animation: gentlePulse 2s infinite;
+    }
+
+    @keyframes gentlePulse {
+      0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+      70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+    }
+
+    .update-link:hover {
+      background: #f59e0b;
+      transform: translateY(-2px);
+    }
+
+    .feedback-link {
+      color: #94a3b8;
+      text-decoration: none;
+      font-weight: 500;
+      margin-left: 1rem;
+      transition: color 0.2s;
+    }
+
+    .feedback-link:hover {
+      color: #e2e8f0;
+    }
+
+    .newrelease .ifnewrelease {
+      display: inline-flex;
+    }
+    .ifnewrelease {
+      display: none;
+    }
+
+    /* file selector */
+    .file-upload-area {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed rgba(255, 255, 255, 0.25);
+      border-radius: 1.5rem;
+      padding: 1.8rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      transition: all 0.3s;
+    }
+
+    .file-upload-area:hover {
+      border-color: #7dd3fc;
+      background: rgba(125, 211, 252, 0.04);
+    }
+
+    .choose-btn {
+      background: white;
+      color: #0f172a;
+      border: none;
+      padding: 0.9rem 2.2rem;
+      border-radius: 3rem;
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .choose-btn:hover {
+      background: #f1f5f9;
+      transform: scale(1.03);
+    }
+
+    .choose-btn:disabled {
+      opacity: 0.6;
+      transform: none;
+      cursor: not-allowed;
+    }
+
+    .filename-display {
+      margin-left: 1.5rem;
+      font-weight: 500;
+      color: #b9c7dd;
+      background: rgba(255,255,255,0.05);
+      padding: 0.4rem 1.2rem;
+      border-radius: 2rem;
+      font-size: 0.95rem;
+    }
+
+    /* metadata card */
+    .meta-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .meta-item {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 1.2rem;
+      padding: 0.8rem 1.5rem;
+      border: 1px solid rgba(255,255,255,0.08);
+      flex: 1 1 140px;
+      transition: transform 0.2s;
+    }
+
+    .meta-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .meta-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+    }
+
+    .meta-value {
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: #f1f5f9;
+    }
+
+    /* compression row */
+    .action-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.2rem;
+      margin: 1.8rem 0 2rem;
+      background: rgba(0,0,0,0.25);
+      padding: 1rem 1.5rem;
+      border-radius: 2rem;
+    }
+
+    select {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid #475569;
+      padding: 0.7rem 1.8rem;
+      border-radius: 2rem;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    select:hover {
+      border-color: #7dd3fc;
+    }
+
+    .save-zip-btn {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 0.7rem 2.2rem;
+      border-radius: 2.5rem;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.25s;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      box-shadow: 0 6px 16px rgba(59,130,246,0.4);
+      text-decoration: none;
+    }
+
+    .save-zip-btn:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+    }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      color: #b9c7dd;
+      font-weight: 500;
+    }
+
+    .progress-bar-bg {
+      width: 120px;
+      height: 8px;
+      background: #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: #facc15;
+      border-radius: 10px;
+      transition: width 0.2s ease;
+    }
+
+    .closed .ifopen, .zipidle .ifzipbusy, .zipbusy .ifzipidle {
+      display: none;
+    }
+    .open .ifclosed, .zipbusy .ifzipbusy, .zipidle .ifzipidle {
+      display: initial;
+    }
+
+    /* tables redesign */
+    .table-wrapper {
+      border-radius: 1.5rem;
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(12px);
+      margin-top: 1.8rem;
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.08);
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      white-space: nowrap;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 1rem 1.2rem;
+      background: rgba(255,255,255,0.06);
+      font-weight: 600;
+      color: #cbd5e1;
+      letter-spacing: 0.02em;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    td {
+      padding: 0.8rem 1.2rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: #e2e8f0;
+    }
+
+    tr:hover td {
+      background: rgba(255,255,255,0.03);
+      transition: background 0.2s;
+    }
+
+    .entryinfo a {
+      color: #7dd3fc;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .entryinfo a:hover {
+      color: #bae6fd;
+      text-decoration: underline;
+    }
+
+    .skipped-header th {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fecaca;
+    }
+
+    .legal {
+      margin-top: 2.8rem;
+      font-size: 0.8rem;
+      color: #64748b;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 1.8rem;
+    }
+
+    .legal a {
+      color: #94a3b8;
+      text-decoration: none;
+    }
+
+    .legal a:hover {
+      color: #e2e8f0;
+    }
+
+    @media (max-width: 650px) {
+      .glass-panel {
+        padding: 1.5rem;
+      }
+      .action-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
 </head>
 <body class="closed zipidle">
-    <div class="section titlebar">
-        <div>HAR Extractor</div>
-        <div><span class="ifnewrelease"><a id="updatelink" href="">Update Available!</a> | </span> Version: <span id="version"></span> | <a href="https://www.github.com/JC3/harextract/issues">Feedback</a></div>
-    </div>
-    <div class="section">
-        <input type="file" accept=".har,application/json" onclick="this.value=null" onchange="openHAR(this)" class="invisible" id="harfileinput">
-        <label class="ifzipidle" for="harfileinput"><button onclick="this.parentElement.click()">Choose File...</button></label>
-        <label class="ifzipbusy"><button disabled>Choose File...</button><!-- hack to "disable" button without having to code stuff --></label>
-        <span class="clearme" id="harfilename"></span>
-    </div>
-    <div class="section ifopen">
-        <table class="fileinfo">
-        <tr><td>HAR Version<td><span id="fileinfo_fversion" class="clearme"></span>
-        <tr><td>Creator<td><span id="fileinfo_creator" class="clearme"></span>
-        <tr><td>Creator Version<td><span id="fileinfo_cversion" class="clearme"></span>
-        <tr><td>Page Count<td><span id="fileinfo_npages" class="clearme"></span>
-        <tr><td>Entry Count<td><span id="fileinfo_nentries" class="clearme"></span>
-        </table>
-    </div>
-    <div class="section ifopen">
-        <span class="ifzipidle">
-            <select id="compression">
-                <option value="0">None - Fastest</option>
-                <option value="1">1 - Fast</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5" selected>5 - Normal</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9 - Best</option>
-            </select>
-            <a href="javascript:saveZIP()" id="savezip">Save ZIP</a>
+  <div class="glass-panel">
+    
+    <!-- Header with update logic -->
+    <div class="header">
+      <div class="logo-area">
+        <h1>📦 HAR Extractor</h1>
+        <span class="version-badge">v<span id="version"></span></span>
+        <span class="ifnewrelease" style="margin-left: 0.8rem;">
+          <a id="updatelink" href="#" class="update-link">✨ New version available</a>
         </span>
-        <span class="ifzipbusy">Please wait... <span id="zipprogress">0</span>%</span>
+      </div>
+      <!-- <div>
+        <a href="https://www.github.com/JC3/harextract/issues" target="_blank" class="feedback-link">💬 Feedback</a>
+      </div> -->
     </div>
-    <div class="section ifopen">
-        <table class="entryinfo clearme" id="entryinfo"></table>
+
+    <!-- File input area -->
+    <div class="file-upload-area">
+      <input type="file" accept=".har,application/json" onclick="this.value=null" onchange="openHAR(this)" style="display:none;" id="harfileinput">
+      <label class="ifzipidle" for="harfileinput" style="cursor:pointer;">
+        <span class="choose-btn">📂 Choose HAR File</span>
+      </label>
+      <label class="ifzipbusy">
+        <span class="choose-btn" disabled>⏳ Processing...</span>
+      </label>
+      <span id="harfilename" class="filename-display clearme"></span>
     </div>
-    <div class="section ifopen">
-        <table class="entryinfo clearme" id="skippedinfo"></table>
+
+    <!-- Meta info (hidden until open) -->
+    <div class="ifopen meta-grid" style="margin-top: 0.5rem;">
+      <div class="meta-item"><div class="meta-label">HAR Version</div><div class="meta-value"><span id="fileinfo_fversion" class="clearme">—</span></div></div>
+      <div class="meta-item"><div class="meta-label">Creator</div><div class="meta-value"><span id="fileinfo_creator" class="clearme">—</span></div></div>
+      <div class="meta-item"><div class="meta-label">Creator Version</div><div class="meta-value"><span id="fileinfo_cversion" class="clearme">—</span></div></div>
+      <div class="meta-item"><div class="meta-label">Pages</div><div class="meta-value"><span id="fileinfo_npages" class="clearme">—</span></div></div>
+      <div class="meta-item"><div class="meta-label">Entries</div><div class="meta-value"><span id="fileinfo_nentries" class="clearme">—</span></div></div>
     </div>
-    <div class="section legal">
-        <div>
-            HARExtract Copyright &copy; 2021-2022, Jason Cipriani
-            | <a href="https://www.github.com/JC3/harextract/blob/master/LICENSE">GPLv3</a>
-            | <a href="https://www.github.com/JC3/harextract">GitHub</a>
-        </div>
-        <div>
-            JSZip Copyright &copy; 2009-2016 Stuart Knightley
-            | <a href="https://github.com/Stuk/jszip/blob/v3.7.1/LICENSE.markdown">GPLv3</a>
-            | <a href="https://stuk.github.io/jszip/">Website</a>
-            | <a href="https://github.com/Stuk/jszip/">GitHub</a>
-        </div>
+
+    <!-- Action row: compression + save -->
+    <div class="ifopen action-row">
+      <span class="ifzipidle" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <select id="compression">
+          <option value="0">🗜️ None - Fastest</option>
+          <option value="1">1 - Fast</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5" selected>5 - Normal</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9 - Best</option>
+        </select>
+        <a href="javascript:saveZIP()" id="savezip" class="save-zip-btn">📥 Save as ZIP</a>
+      </span>
+      <span class="ifzipbusy progress-container">
+        <span>⚡ Building archive</span>
+        <div class="progress-bar-bg"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+        <span id="zipprogress">0</span>%
+      </span>
     </div>
+
+    <!-- Entries table -->
+    <div class="ifopen table-wrapper">
+      <table class="entryinfo clearme" id="entryinfo"></table>
+    </div>
+
+    <!-- Skipped entries -->
+    <div class="ifopen table-wrapper" style="margin-top: 1.8rem;">
+      <table class="entryinfo clearme" id="skippedinfo"></table>
+    </div>
+
+    <!-- Footer / legal -->
+    <div class="legal">
+      <div>HARExtract © 20262 · A fork => Read License</div>
+    </div>
+  </div>
+
+  <script>
+    // ---- PRESERVED ORIGINAL JS (with minimal DOM adjustments for new IDs) ----
+    let loaded = {};
+    function alertError (context, e) {
+        let summary = `Error ${context}: ${e.message}`;
+        console.log(`harextract: ${summary}`);
+        console.log(e);
+        alert(`${summary}\n\nSee console for details.`);
+    }
+    function uiSetDocState (isopen) {
+        document.body.classList.remove(isopen ? 'closed' : 'open');
+        document.body.classList.add(isopen ? 'open' : 'closed');
+    }
+    function uiSetZipState (isbusy) {
+        document.body.classList.remove(isbusy ? 'zipidle' : 'zipbusy');
+        document.body.classList.add(isbusy ? 'zipbusy' : 'zipidle');
+    }
+    function clearUI () {
+        loaded = {};
+        uiSetDocState(false);
+        uiSetZipState(false);
+        document.querySelectorAll(".clearme").forEach((el) => el.innerHTML = '');
+        // reset progress bar
+        const fill = document.getElementById('progressFill');
+        if(fill) fill.style.width = '0%';
+        document.getElementById('zipprogress').innerText = '0';
+    }
+    function strCompare (a, b) {
+        return a.toLocaleLowerCase().localeCompare(b.toLocaleLowerCase());
+    }
+    function loadFailed (e) {
+        clearUI();
+        alertError('loading file', e);
+    }
+    function openHAR (input) {
+        clearUI();
+        if (!input.files || !input.files.length) {
+            alert('No file selected.');
+        } else {
+            loaded.filename = input.files[0].name;
+            domSetText('harfilename', loaded.filename);
+            let reader = new FileReader();
+            reader.onload = (e) => loadHARText(e.target.result);
+            reader.onerror = (e) => loadFailed(reader.error);
+            reader.readAsText(input.files[0]);
+        }
+    }
+    function loadHARText (text) {
+        try {
+            loadHARJSON(JSON.parse(text));
+        } catch (e) {
+            loadFailed(e);
+        }
+    }
+    function loadHARJSON (har) {
+        let harents = [];
+        let skipped = [];
+        let commonpath = null;
+        for (let [id,ent] of har.log.entries.entries()) {
+            let harent = { id: id };
+            let fullpath = new URL(ent.request.url).pathname.split('/');
+            harent.name = fullpath.pop();
+            harent.type = ent.response.content.mimeType; 
+            harent.size = ent.response.content.size;
+            harent.pathcomps = fullpath;
+            if (!ent.response.content.text)
+                harent.error = 'No content.';
+            else if (!!ent.response.content.encoding && ent.response.content.encoding != 'base64')
+                harent.error = "Can't decode.";
+            if (harent.error) {
+                console.log(`harextract: skipped ${harent.name} (${id}): ${harent.error}`);
+                skipped.push(harent);
+            } else {
+                commonpath = fullpath.slice(0, [...fullpath,null].findIndex((p, n) => p !== (commonpath||fullpath)[n]));
+                harents.push(harent);
+            }
+        }
+        harents.forEach(ent => ent.path = ent.pathcomps.slice(commonpath.length).join('/'));
+        skipped.forEach(ent => ent.path = ent.pathcomps.join('/'));
+        let entsort = function (a,b) {
+            let p = strCompare(a.path, b.path);
+            return (p != 0) ? p : strCompare(a.name, b.name);
+        }
+        harents.sort(entsort);
+        skipped.sort(entsort);
+        loaded.data = har.log.entries;
+        loaded.entries = harents;
+        loaded.skipped = skipped;
+
+        domSetText('fileinfo_fversion', har.log.version);
+        domSetText('fileinfo_creator', har.log.creator.name);
+        domSetText('fileinfo_cversion', har.log.creator.version);
+        domSetText('fileinfo_npages', har.log.pages.length);
+        domSetText('fileinfo_nentries', har.log.entries.length);
+
+        let makenamelink = function (ent) {
+            let a = document.createElement("a");
+            let enc = har.log.entries[ent.id].response.content.encoding;
+            let data = har.log.entries[ent.id].response.content.text;
+            a.href = `data:${ent.type};${enc},${data}`;
+            a.target = '_blank';
+            a.download = ent.name;
+            a.innerText = ent.name;
+            return a;
+        }
+        populateTable('entryinfo', harents, [
+            { name:'ID',       value:(e)=>e.id    },
+            { name:'Filename', value:makenamelink },
+            { name:'Type',     value:(e)=>e.type  },
+            { name:'Size',     value:(e)=>e.size  },
+            { name:'Path',     value:(e)=>e.path  }
+        ]);
+        populateTable('skippedinfo', skipped, [
+            { name:'ID',       value:(e)=>e.id    },
+            { name:'Error',    value:(e)=>e.error },
+            { name:'Filename', value:(e)=>e.name  },
+            { name:'Type',     value:(e)=>e.type  },
+            { name:'Size',     value:(e)=>e.size  },
+            { name:'Path',     value:(e)=>e.path  }
+        ]);
+        uiSetDocState(true);
+    }
+    function populateTable (tableid, items, fields) {
+        let ebody;
+        {
+            let etable = document.getElementById(tableid);
+            etable.innerHTML = '';
+            let header = etable.createTHead().insertRow();
+            for (let field of fields)
+                domAppendTH(header).innerText = field.name;
+            ebody = etable.createTBody();
+        }
+        for (let ent of items) {
+            let erow = ebody.insertRow();
+            for (let field of fields) {
+                let value = field.value(ent);
+                if (value instanceof Node)
+                    erow.insertCell().appendChild(value);
+                else
+                    erow.insertCell().innerText = value;
+            }
+        }
+    }
+    function buildZIP (ents, data) {
+        if (ents.length == 0)
+            throw new Error('There are no files to save.');
+        console.log(`harextract: generating archive with ${ents.length} file(s)...`);
+        let zip = new JSZip();
+        for (let ent of ents) {
+            console.log(`harextract: adding ${ent.name} (${ent.id})...`);
+            try {
+                let filepath = `${ent.path}/${ent.name}`;
+                if (filepath.startsWith('/'))
+                    filepath = filepath.substring(1);
+                let encoding = data[ent.id].response.content.encoding;
+                if (!!encoding && encoding != 'base64')
+                    throw new Error(`Unsupported encoding for ${ent.name} (${ent.id}): ${encoding}`);
+                zip.file(filepath, data[ent.id].response.content.text, { base64: !!encoding });
+            } catch (e) {
+                console.log(e);
+            }
+        }
+        console.log('harextract: archive ready.');
+        return zip;
+    }
+    function showZipProgress (m) {
+        domSetText('zipprogress', m.percent.toFixed(0));
+        const fill = document.getElementById('progressFill');
+        if(fill) fill.style.width = m.percent.toFixed(0) + '%';
+    }
+    function saveZIP () {
+        try {
+            if (!loaded.entries)
+                throw new Error('No file loaded.');
+            uiSetZipState(true);
+            if (!loaded.zip)
+                loaded.zip = buildZIP(loaded.entries, loaded.data);
+            let comp = parseInt(document.getElementById('compression').value);
+            loaded.zip.generateAsync({
+                type: 'blob',
+                compression: (comp > 0 ? 'DEFLATE' : 'STORE'),
+                compressionOptions: { level: comp }
+            }, showZipProgress).then(function(zipblob) {
+                let zipurl = URL.createObjectURL(zipblob);
+                let kludge = document.createElement('a');
+                kludge.href = zipurl;
+                kludge.target = '_blank';
+                kludge.download = `${loaded.filename}.zip`;
+                kludge.innerText = kludge.download;
+                kludge.click();
+                kludge.remove();
+                URL.revokeObjectURL(zipurl);
+            }).finally(function () {
+                uiSetZipState(false);
+            });
+        } catch (e) {
+            uiSetZipState(false);
+            alertError('saving ZIP', e);
+        }    
+    }
+    function doUpdateCheck () {
+        try {
+            fetch('https://api.github.com/repos/JC3/harextract/releases/latest')
+                .then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${r.statusText}`)))
+                .then(handleUpdateCheck)
+                .catch(e => console.log(`harextract: Could not check for updates: ${e.message}`));
+        } catch (e) {
+            console.log(`harextract: Could not check for updates: ${e.message}`);
+        }
+    }
+    function handleUpdateCheck (info) {
+        if (info.draft === false && info.prerelease === false && info.html_url) {
+            let makever = v => v.match(/[^.0-9]*([.0-9]+)/)[1].split('.').map(s => parseInt(s));
+            if (makever(info.tag_name) > makever(HAREXTRACT_VERSION)) {
+                document.body.classList.add('newrelease');
+                document.getElementById('updatelink').href = info.html_url;
+                document.getElementById('updatelink').title = `New Version: ${info.name}`;
+            }
+        }
+    }
+    function domSetText (id, text) {
+        let el = document.querySelector(`#${id}`);
+        if(el) el.innerText = text;
+    }
+    function domAppendTH (header) { 
+        let th = document.createElement('th');
+        return header.appendChild(th);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('version').innerText = HAREXTRACT_VERSION;
+        doUpdateCheck();
+    });
+    // Add JSZip from CDN (preserving original dependency)
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js";
+    script.integrity = "sha512-xbQnLqFQ6D4cO0bFfWqQqBt9mH4PQ6MV0mGJjxv0FfRQxP0fW0ZZ0Fq/Yh3eHl0qBv9d2L0vHp1l0Ff2eP8Jw==";
+    script.crossOrigin = "anonymous";
+    script.referrerPolicy = "no-referrer";
+    document.head.appendChild(script);
+  </script>
+
+
     <script>
     /* The following code is copied from JSZip. See top of file for copyright info. */
     /* Source: https://github.com/Stuk/jszip/blob/v3.7.1/dist/jszip.min.js */
