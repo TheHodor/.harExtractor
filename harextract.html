@@ -27,7 +27,7 @@
 <html lang="en">
 <head>
 <script>const HAREXTRACT_VERSION = '0.9.2';</script> <!-- KEEP THIS UPDATED! -->
-<title>HAR Extractor</title>
+<title>HAR Extractorr</title>
 <style>
 .closed .ifopen { display: none; }
 .open .ifclosed { display: none; }
@@ -177,7 +177,7 @@ function loadHARJSON (har) {
         harent.pathcomps = fullpath; // .path string will be set below
         if (!ent.response.content.text)
             harent.error = 'No content.';
-        else if (ent.response.content.encoding != 'base64')
+        else if (!!ent.response.content.encoding && ent.response.content.encoding != 'base64')
             harent.error = "Can't decode.";
         if (harent.error) {
             console.log(`harextract: skipped ${harent.name} (${id}): ${harent.error}`);
@@ -279,9 +279,9 @@ function buildZIP (ents, data) {
             if (filepath.startsWith('/'))
                 filepath = filepath.substring(1);
             let encoding = data[ent.id].response.content.encoding;
-            if (encoding != 'base64')
+            if (!!encoding && encoding != 'base64')
                 throw new Error(`Unsupported encoding for ${ent.name} (${ent.id}): ${encoding}`);
-            zip.file(filepath, data[ent.id].response.content.text, { base64: true });
+            zip.file(filepath, data[ent.id].response.content.text, { base64: !!encoding });
         } catch (e) {
             console.log(e);
         }
