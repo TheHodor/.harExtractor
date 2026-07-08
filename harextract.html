@@ -570,28 +570,30 @@
             loadFailed(e);
         }
     }
-    function loadHARJSON (har) {
-        let harents = [];
-        let skipped = [];
-        let commonpath = null;
-        for (let [id,ent] of har.log.entries.entries()) {
-            let harent = { id: id };
-            let fullpath = new URL(ent.request.url).pathname.split('/');
-            harent.name = fullpath.pop();
-            harent.type = ent.response.content.mimeType; 
-            harent.size = ent.response.content.size;
-            harent.pathcomps = fullpath;
-            if (!ent.response.content.text)
-                harent.error = 'No content.';
-            else if (!!ent.response.content.encoding && ent.response.content.encoding != 'base64')
-                harent.error = "Can't decode.";
-            if (harent.error) {
-                console.log(`harextract: skipped ${harent.name} (${id}): ${harent.error}`);
-                skipped.push(harent);
-            } else {
-                commonpath = fullpath.slice(0, [...fullpath,null].findIndex((p, n) => p !== (commonpath||fullpath)[n]));
-                harents.push(harent);
-            }
+function loadHARJSON (har) {
+    let harents = [];
+    let skipped = [];
+    let commonpath = null;
+    for (let [id,ent] of har.log.entries.entries()) {
+        let harent = { id: id };
+        // Fix: Decode the URL to preserve original filenames with spaces
+        let fullpath = decodeURIComponent(new URL(ent.request.url).pathname).split('/');
+        harent.name = fullpath.pop();
+        harent.type = ent.response.content.mimeType; 
+        harent.size = ent.response.content.size;
+        harent.pathcomps = fullpath;
+        if (!ent.response.content.text)
+            harent.error = 'No content.';
+        else if (!!ent.response.content.encoding && ent.response.content.encoding != 'base64')
+            harent.error = "Can't decode.";
+        if (harent.error) {
+            console.log(`harextract: skipped ${harent.name} (${id}): ${harent.error}`);
+            skipped.push(harent);
+        } else {
+            commonpath = fullpath.slice(0, [...fullpath,null].findIndex((p, n) => p !== (commonpath||fullpath)[n]));
+            harents.push(harent);
+        }
+   
         }
         harents.forEach(ent => ent.path = ent.pathcomps.slice(commonpath.length).join('/'));
         skipped.forEach(ent => ent.path = ent.pathcomps.join('/'));
