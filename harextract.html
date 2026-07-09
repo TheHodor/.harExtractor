@@ -382,10 +382,6 @@
       color: var(--text-secondary);
     }
 
-    .warning-tag {
-      color: var(--accent-yellow);
-    }
-
     /* Footer */
     .footer {
       margin-top: 2rem;
@@ -604,52 +600,15 @@
             harent.size = ent.response.content.size || (ent.response.content.text ? ent.response.content.text.length : 0);
             harent.pathcomps = fullpath;
             
-            // More lenient content detection - check for text content even if size is 0
-            // Also check response bodySize which might indicate binary content
-            let hasContent = false;
-            let contentEncoding = ent.response.content.encoding;
-            
-            // Check if text content exists (base64 encoded or raw)
-            if (ent.response.content.text && ent.response.content.text.length > 0) {
-                hasContent = true;
-            }
-            
-            // If no text content but bodySize indicates data, check for _file or raw content
-            if (!hasContent && ent.response.bodySize > 0) {
-                // Some HAR files store binary content in different places
-                if (ent.response.content._file) {
-                    hasContent = true;
-                    harent.size = ent.response.content.size || ent.response.bodySize;
-                }
-                // Check if there's raw content that might not be in the standard location
-                if (ent.response._raw || ent.response.content._raw) {
-                    hasContent = true;
-                }
-            }
-            
-            if (!ent.response || !ent.response.content) {
+            // Original content check - only include if content actually exists
+            if (!ent.response || !ent.response.content || ent.response.content.text === undefined) {
                 harent.error = 'No content available';
-            } else if (!hasContent) {
-                harent.error = 'No content available';
-                // If the file has a size and is a binary type, still try to include it
-                if (ent.response.bodySize > 0 || ent.response.content.size > 0) {
-                    console.log(`harextract: Entry ${id} (${harent.name}) has size but no text content. Size: ${formatFileSize(ent.response.content.size || ent.response.bodySize)}`);
-                    // Don't mark as error for binary files that have size info
-                    if (harent.type.includes('wasm') || harent.type.includes('octet-stream') || 
-                        harent.name.endsWith('.wasm') || harent.name.endsWith('.pck') ||
-                        harent.name.endsWith('.bin') || harent.name.endsWith('.data')) {
-                        harent.error = null;
-                        // Create empty content as placeholder - file will be in ZIP but empty
-                        harent._emptyContent = true;
-                        hasContent = true;
-                        console.log(`harextract: Including binary file ${harent.name} (may be empty if HAR didn't capture content)`);
-                    }
-                }
-            } else if (!!contentEncoding && contentEncoding !== 'base64') {
-                harent.error = `Unsupported encoding: ${contentEncoding}`;
+            } else if (!!ent.response.content.encoding && ent.response.content.encoding !== 'base64') {
+                harent.error = `Unsupported encoding: ${ent.response.content.encoding}`;
             }
             
             if (harent.error) {
+                console.log(`harextract: skipped ${harent.name} (${id}): ${harent.error}`);
                 skipped.push(harent);
             } else {
                 if (commonpath === null) {
@@ -685,20 +644,10 @@
 
         let makenamelink = function (ent) {
             let a = document.createElement("a");
-            let entry = har.log.entries[ent.id];
-            let enc = entry.response.content.encoding;
-            let data = entry.response.content.text;
+            let enc = har.log.entries[ent.id].response.content.encoding;
+            let data = har.log.entries[ent.id].response.content.text;
             
-            if (ent._emptyContent) {
-                a.href = '#';
-                a.className = 'entry-link';
-                a.style.color = 'var(--accent-yellow)';
-                a.onclick = function(e) {
-                    e.preventDefault();
-                    alert(`"${ent.name}" was captured without content in the HAR file.\nThe file entry will be included in the ZIP but may be empty.\n\nTo capture this file, ensure your HAR recorder saves response bodies.`);
-                };
-                a.title = 'Content not captured in HAR';
-            } else if (data && data.length > 10 * 1024 * 1024) {
+            if (data && data.length > 10 * 1024 * 1024) {
                 a.href = '#';
                 a.className = 'entry-link';
                 a.style.color = 'var(--accent-yellow)';
@@ -707,7 +656,7 @@
                     alert(`"${ent.name}" is ${formatFileSize(data.length)} - too large for preview.\nUse the Download ZIP button to access this file.`);
                 };
                 a.title = 'Large file - download ZIP to access';
-            } else if (data) {
+            } else {
                 a.href = `data:${ent.type};${enc || ''},${data || ''}`;
                 a.target = '_blank';
                 a.download = ent.name;
@@ -720,12 +669,7 @@
         let makeSizeTag = function (ent) {
             let span = document.createElement('span');
             span.className = 'size-tag';
-            if (ent.size > 50 * 1024 * 1024) span.className += ' warning-tag';
             span.innerText = formatFileSize(ent.size);
-            if (ent._emptyContent) {
-                span.innerText += ' ⚠️';
-                span.title = 'Content may not be captured in HAR';
-            }
             return span;
         };
         
@@ -753,6 +697,18 @@
     function populateTable (tableid, items, fields) {
         let etable = document.getElementById(tableid);
         etable.innerHTML = '';
+        
+        if (items.length === 0) {
+            let tbody = etable.createTBody();
+            let row = tbody.insertRow();
+            let cell = row.insertCell();
+            cell.colSpan = fields.length;
+            cell.style.textAlign = 'center';
+            cell.style.color = 'var(--text-muted)';
+            cell.style.padding = '2rem';
+            cell.innerText = tableid === 'skippedinfo' ? 'No entries skipped' : 'No files extracted';
+            return;
+        }
         
         let header = etable.createTHead().insertRow();
         for (let field of fields) {
@@ -782,21 +738,12 @@
         console.log(`harextract: Building ZIP with ${ents.length} files...`);
         let zip = new JSZip();
         let added = 0;
-        let emptyAdded = 0;
         
         for (let ent of ents) {
             try {
                 let filepath = `${ent.path}/${ent.name}`.replace(/^\/+/, '');
                 let encoding = data[ent.id].response.content.encoding;
                 let content = data[ent.id].response.content.text;
-                
-                if (ent._emptyContent) {
-                    // Add file with empty content so it's in the ZIP structure
-                    zip.file(filepath, '', { base64: false });
-                    emptyAdded++;
-                    console.log(`harextract: Added empty placeholder for ${ent.name}`);
-                    continue;
-                }
                 
                 if (!content) continue;
                 if (!!encoding && encoding !== 'base64') continue;
@@ -808,10 +755,8 @@
             }
         }
         
-        console.log(`harextract: ${added} files with content, ${emptyAdded} empty placeholders added to ZIP`);
-        if (added === 0 && emptyAdded === 0) {
-            throw new Error('No files could be added to the ZIP archive.');
-        }
+        console.log(`harextract: ${added} files added to ZIP`);
+        if (added === 0) throw new Error('No files could be added to the ZIP archive.');
         
         return zip;
     }
@@ -893,9 +838,7 @@
         document.getElementById('version-footer').innerText = HAREXTRACT_VERSION;
         doUpdateCheck();
     });
-
   </script>
-
   <script src="jszip.min.js"></script>
 </body>
 </html>
