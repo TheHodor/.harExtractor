@@ -41,7 +41,7 @@
   <meta name="description" content="HAR Extractor is a free, client-side tool to extract files from HAR (HTTP Archive) files. Open your HAR, preview content, and save everything as a clean ZIP archive.">
   <meta name="keywords" content="HAR extractor, HAR file viewer, HTTP archive tool, extract HAR, HAR to ZIP, web debug proxy, HAR file opener">
   <meta name="author" content="Modern redesign based on JC3 HARExtract">
-  <meta name="theme-color" content="#1a1a2e">
+  <meta name="theme-color" content="#1a1a1a">
   <meta property="og:title" content="HAR Extractor - Modern Web Archive Tool">
   <meta property="og:description" content="Extract, preview, and download files from HAR archives in a clean, professional interface. No uploads, fully private.">
   <meta property="og:type" content="website">
@@ -61,18 +61,19 @@
     }
 
     :root {
-      --bg-primary: #1a1a2e;
-      --bg-secondary: #16213e;
-      --bg-surface: #1f2b47;
-      --border-color: #2a3a5c;
-      --text-primary: #e8edf5;
-      --text-secondary: #8b9dc3;
-      --text-muted: #5a6f8f;
-      --accent-blue: #4a8cff;
-      --accent-blue-hover: #3570d8;
-      --accent-green: #34d399;
-      --accent-yellow: #fbbf24;
-      --accent-red: #f87171;
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #242424;
+      --bg-surface: #2d2d2d;
+      --bg-elevated: #333333;
+      --border-color: #3a3a3a;
+      --text-primary: #e8e8e8;
+      --text-secondary: #a0a0a0;
+      --text-muted: #6b6b6b;
+      --accent-blue: #5b9bd5;
+      --accent-blue-hover: #4a8ac4;
+      --accent-green: #4caf50;
+      --accent-yellow: #ffc107;
+      --accent-red: #f44336;
       --transition: 0.2s ease;
     }
 
@@ -114,13 +115,14 @@
     .logo-icon {
       width: 36px;
       height: 36px;
-      background: var(--accent-blue);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-color);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.2rem;
-      color: white;
+      color: var(--text-primary);
     }
 
     .header h1 {
@@ -142,7 +144,7 @@
 
     .update-badge {
       background: var(--accent-yellow);
-      color: #1a1a2e;
+      color: #1a1a1a;
       padding: 0.5rem 1rem;
       border-radius: 6px;
       font-weight: 600;
@@ -172,9 +174,9 @@
     }
 
     .upload-btn {
-      background: var(--accent-blue);
-      color: white;
-      border: none;
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
       padding: 0.6rem 1.5rem;
       border-radius: 6px;
       font-weight: 500;
@@ -187,7 +189,8 @@
     }
 
     .upload-btn:hover {
-      background: var(--accent-blue-hover);
+      background: var(--bg-surface);
+      border-color: #555;
     }
 
     .upload-btn:disabled {
@@ -243,7 +246,7 @@
     }
 
     .compression-select {
-      background: var(--bg-surface);
+      background: var(--bg-elevated);
       color: var(--text-primary);
       border: 1px solid var(--border-color);
       padding: 0.5rem 1rem;
@@ -254,12 +257,12 @@
     }
 
     .compression-select:focus {
-      border-color: var(--accent-blue);
+      border-color: #555;
     }
 
     .save-btn {
       background: var(--accent-green);
-      color: #1a1a2e;
+      color: #1a1a1a;
       border: none;
       padding: 0.6rem 1.5rem;
       border-radius: 6px;
@@ -288,14 +291,14 @@
     .progress-bar {
       width: 150px;
       height: 6px;
-      background: var(--bg-surface);
+      background: var(--bg-elevated);
       border-radius: 3px;
       overflow: hidden;
     }
 
     .progress-fill {
       height: 100%;
-      background: var(--accent-blue);
+      background: var(--accent-green);
       transition: width 0.3s ease;
       width: 0%;
     }
@@ -355,7 +358,7 @@
     }
 
     tr:hover td {
-      background: rgba(74, 140, 255, 0.03);
+      background: rgba(255, 255, 255, 0.02);
     }
 
     .entry-link {
@@ -373,14 +376,13 @@
     .size-tag {
       display: inline-block;
       padding: 0.15rem 0.5rem;
-      background: var(--bg-surface);
+      background: var(--bg-elevated);
       border-radius: 4px;
       font-size: 0.8rem;
       color: var(--text-secondary);
     }
 
     .warning-tag {
-      background: rgba(251, 191, 36, 0.1);
       color: var(--accent-yellow);
     }
 
@@ -602,10 +604,49 @@
             harent.size = ent.response.content.size || (ent.response.content.text ? ent.response.content.text.length : 0);
             harent.pathcomps = fullpath;
             
-            if (!ent.response || !ent.response.content || ent.response.content.text === undefined) {
+            // More lenient content detection - check for text content even if size is 0
+            // Also check response bodySize which might indicate binary content
+            let hasContent = false;
+            let contentEncoding = ent.response.content.encoding;
+            
+            // Check if text content exists (base64 encoded or raw)
+            if (ent.response.content.text && ent.response.content.text.length > 0) {
+                hasContent = true;
+            }
+            
+            // If no text content but bodySize indicates data, check for _file or raw content
+            if (!hasContent && ent.response.bodySize > 0) {
+                // Some HAR files store binary content in different places
+                if (ent.response.content._file) {
+                    hasContent = true;
+                    harent.size = ent.response.content.size || ent.response.bodySize;
+                }
+                // Check if there's raw content that might not be in the standard location
+                if (ent.response._raw || ent.response.content._raw) {
+                    hasContent = true;
+                }
+            }
+            
+            if (!ent.response || !ent.response.content) {
                 harent.error = 'No content available';
-            } else if (!!ent.response.content.encoding && ent.response.content.encoding !== 'base64') {
-                harent.error = `Unsupported encoding: ${ent.response.content.encoding}`;
+            } else if (!hasContent) {
+                harent.error = 'No content available';
+                // If the file has a size and is a binary type, still try to include it
+                if (ent.response.bodySize > 0 || ent.response.content.size > 0) {
+                    console.log(`harextract: Entry ${id} (${harent.name}) has size but no text content. Size: ${formatFileSize(ent.response.content.size || ent.response.bodySize)}`);
+                    // Don't mark as error for binary files that have size info
+                    if (harent.type.includes('wasm') || harent.type.includes('octet-stream') || 
+                        harent.name.endsWith('.wasm') || harent.name.endsWith('.pck') ||
+                        harent.name.endsWith('.bin') || harent.name.endsWith('.data')) {
+                        harent.error = null;
+                        // Create empty content as placeholder - file will be in ZIP but empty
+                        harent._emptyContent = true;
+                        hasContent = true;
+                        console.log(`harextract: Including binary file ${harent.name} (may be empty if HAR didn't capture content)`);
+                    }
+                }
+            } else if (!!contentEncoding && contentEncoding !== 'base64') {
+                harent.error = `Unsupported encoding: ${contentEncoding}`;
             }
             
             if (harent.error) {
@@ -644,10 +685,20 @@
 
         let makenamelink = function (ent) {
             let a = document.createElement("a");
-            let enc = har.log.entries[ent.id].response.content.encoding;
-            let data = har.log.entries[ent.id].response.content.text;
+            let entry = har.log.entries[ent.id];
+            let enc = entry.response.content.encoding;
+            let data = entry.response.content.text;
             
-            if (data && data.length > 10 * 1024 * 1024) {
+            if (ent._emptyContent) {
+                a.href = '#';
+                a.className = 'entry-link';
+                a.style.color = 'var(--accent-yellow)';
+                a.onclick = function(e) {
+                    e.preventDefault();
+                    alert(`"${ent.name}" was captured without content in the HAR file.\nThe file entry will be included in the ZIP but may be empty.\n\nTo capture this file, ensure your HAR recorder saves response bodies.`);
+                };
+                a.title = 'Content not captured in HAR';
+            } else if (data && data.length > 10 * 1024 * 1024) {
                 a.href = '#';
                 a.className = 'entry-link';
                 a.style.color = 'var(--accent-yellow)';
@@ -656,7 +707,7 @@
                     alert(`"${ent.name}" is ${formatFileSize(data.length)} - too large for preview.\nUse the Download ZIP button to access this file.`);
                 };
                 a.title = 'Large file - download ZIP to access';
-            } else {
+            } else if (data) {
                 a.href = `data:${ent.type};${enc || ''},${data || ''}`;
                 a.target = '_blank';
                 a.download = ent.name;
@@ -671,6 +722,10 @@
             span.className = 'size-tag';
             if (ent.size > 50 * 1024 * 1024) span.className += ' warning-tag';
             span.innerText = formatFileSize(ent.size);
+            if (ent._emptyContent) {
+                span.innerText += ' ⚠️';
+                span.title = 'Content may not be captured in HAR';
+            }
             return span;
         };
         
@@ -727,12 +782,21 @@
         console.log(`harextract: Building ZIP with ${ents.length} files...`);
         let zip = new JSZip();
         let added = 0;
+        let emptyAdded = 0;
         
         for (let ent of ents) {
             try {
                 let filepath = `${ent.path}/${ent.name}`.replace(/^\/+/, '');
                 let encoding = data[ent.id].response.content.encoding;
                 let content = data[ent.id].response.content.text;
+                
+                if (ent._emptyContent) {
+                    // Add file with empty content so it's in the ZIP structure
+                    zip.file(filepath, '', { base64: false });
+                    emptyAdded++;
+                    console.log(`harextract: Added empty placeholder for ${ent.name}`);
+                    continue;
+                }
                 
                 if (!content) continue;
                 if (!!encoding && encoding !== 'base64') continue;
@@ -744,7 +808,11 @@
             }
         }
         
-        console.log(`harextract: ${added} files added to ZIP`);
+        console.log(`harextract: ${added} files with content, ${emptyAdded} empty placeholders added to ZIP`);
+        if (added === 0 && emptyAdded === 0) {
+            throw new Error('No files could be added to the ZIP archive.');
+        }
+        
         return zip;
     }
     
@@ -825,9 +893,7 @@
         document.getElementById('version-footer').innerText = HAREXTRACT_VERSION;
         doUpdateCheck();
     });
-    
-    // Load JSZip
-    
+
   </script>
 
   <script src="/jszip.min.js"></script>
