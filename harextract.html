@@ -1,5 +1,5 @@
 <!--
-    HARExtract 1.0.2 (Forked & Modified)
+    HARExtract 1.1.1 (Forked & Modified)
     Original project: https://www.github.com/JC3/harextract
 
     Original Copyright (C) 2021-2022, Jason Cipriani <jason.cipriani.dev ~ gmail.com>
@@ -38,21 +38,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <meta name="description" content="HAR Extractor is a free, client-side tool to extract files from HAR (HTTP Archive) files. Open your HAR, preview content, and save everything as a clean ZIP archive.">
-  <meta name="keywords" content="HAR extractor, HAR file viewer, HTTP archive tool, extract HAR, HAR to ZIP, web debug proxy, HAR file opener">
-  <meta name="author" content="Modern redesign based on JC3 HARExtract">
+  <meta name="description" content="Free HAR file extractor online - Extract files from HAR archives instantly. No uploads, 100% client-side. Download your files as ZIP. Best free HAR to ZIP converter tool.">
+  <meta name="keywords" content="HAR extractor, HAR file viewer, HTTP archive tool, extract HAR, HAR to ZIP, web debug proxy, HAR file opener, free HAR extractor online, download HAR files, extract files from HAR, HAR file downloader, free web archive tool, HAR parser online, extract HTTP archive, download HAR content, free file extractor, online HAR viewer, HAR file converter, extract web files, HAR utility, free tool, client-side HAR extractor, batch HAR extraction, HAR to zip download, open HAR file online, extract web assets from HAR, free online HAR extractor, download files from HAR, HAR archive extractor, free HAR tool, web debugging HAR extractor">
+  <meta name="author" content="HARExtract - Free Online HAR File Extractor">
   <meta name="theme-color" content="#1a1a1a">
-  <meta property="og:title" content="HAR Extractor - Modern Web Archive Tool">
-  <meta property="og:description" content="Extract, preview, and download files from HAR archives in a clean, professional interface. No uploads, fully private.">
+  <meta property="og:title" content="HAR Extractor - Free Online HAR to ZIP Converter">
+  <meta property="og:description" content="Free HAR file extractor online. Extract, preview, and download files from HAR archives in a clean, professional interface. No uploads, fully private. The best free HAR to ZIP tool.">
   <meta property="og:type" content="website">
   <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://harextractor.app/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <script>
-    const HAREXTRACT_VERSION = '1.0.2'; 
+    const HAREXTRACT_VERSION = '1.1.1'; 
   </script>
-  <title>HAR Extractor · File Saver</title>
+  <title>Free HAR Extractor Online - Extract Files from HAR to ZIP | HARExtract</title>
   <style>
     * {
       margin: 0;
@@ -384,6 +385,68 @@
       color: var(--text-secondary);
     }
 
+    /* SEO Section */
+    .seo-section {
+      margin-top: 3rem;
+      padding: 2rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-secondary);
+    }
+
+    .seo-section h2 {
+      color: var(--text-primary);
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .seo-section h3 {
+      color: var(--text-primary);
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin: 1.5rem 0 0.75rem 0;
+    }
+
+    .seo-section p {
+      margin-bottom: 0.75rem;
+      line-height: 1.7;
+    }
+
+    .seo-section ul {
+      margin: 0.5rem 0 1rem 1.5rem;
+      list-style: disc;
+    }
+
+    .seo-section ul li {
+      margin-bottom: 0.4rem;
+    }
+
+    .seo-section a {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+
+    .seo-section a:hover {
+      text-decoration: underline;
+    }
+
+    .seo-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .seo-feature-item {
+      background: var(--bg-elevated);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent-blue);
+    }
+
     /* Footer */
     .footer {
       margin-top: 2rem;
@@ -414,6 +477,9 @@
       }
       .stats-grid {
         grid-template-columns: repeat(2, 1fr);
+      }
+      .seo-features {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -499,9 +565,90 @@
       <table class="entryinfo clearme" id="skippedinfo"></table>
     </div>
 
+    <!-- SEO Section -->
+    <div class="seo-section">
+      <h2>Free HAR File Extractor Online - Extract Files from HAR Archives</h2>
+      
+      <p><strong>HARExtract</strong> is a <strong>free online HAR file extractor</strong> that lets you <strong>extract files from HAR</strong> (HTTP Archive) files instantly, right in your browser. No uploads, no servers, 100% client-side privacy. This is the best <strong>free HAR to ZIP converter tool</strong> available online.</p>
+      
+      <div class="seo-features">
+        <div class="seo-feature-item">
+          <strong>📥 Free HAR Extractor</strong><br>
+          <small>Extract files from HAR archives for free</small>
+        </div>
+        <div class="seo-feature-item">
+          <strong>🔒 100% Private</strong><br>
+          <small>No file uploads, everything stays local</small>
+        </div>
+        <div class="seo-feature-item">
+          <strong>📦 HAR to ZIP Download</strong><br>
+          <small>Download extracted files as ZIP archive</small>
+        </div>
+        <div class="seo-feature-item">
+          <strong>🔄 Batch Extraction</strong><br>
+          <small>Extract multiple files from HAR at once</small>
+        </div>
+      </div>
+      
+      <h3>How to Extract Files from HAR Online for Free</h3>
+      <p>Using our <strong>free HAR file extractor online</strong> is simple:</p>
+      <ol style="margin: 0.5rem 0 1rem 1.5rem;">
+        <li>Click "Open HAR File" to select your <strong>HAR archive</strong></li>
+        <li>Preview all <strong>extracted files</strong> from the HAR</li>
+        <li>Click "Download ZIP" to <strong>save all files</strong> as a ZIP archive</li>
+      </ol>
+      
+      <h3>Why Choose Our Free HAR to ZIP Converter?</h3>
+      <ul>
+        <li><strong>100% free HAR extractor</strong> - No hidden costs, no sign-up required</li>
+        <li><strong>Client-side HAR extractor</strong> - Your files never leave your computer</li>
+        <li><strong>Download HAR files as ZIP</strong> - Convenient batch extraction</li>
+        <li><strong>Free web archive tool</strong> - Extract HTTP archive contents easily</li>
+        <li><strong>Supports all file types</strong> - Images, scripts, WASM, and more</li>
+        <li><strong>Works offline</strong> - No internet connection needed after loading</li>
+        <li><strong>Open source HAR tool</strong> - Based on HARExtract, transparent and trustworthy</li>
+      </ul>
+      
+      <h3>What Can You Extract from HAR Files?</h3>
+      <p>Our <strong>HAR file downloader</strong> can extract all types of web assets from HTTP archives including:</p>
+      <ul>
+        <li><strong>JavaScript files</strong> - Extract JS scripts from HAR</li>
+        <li><strong>CSS stylesheets</strong> - Download CSS from HAR archives</li>
+        <li><strong>Images</strong> - Extract PNG, JPG, SVG from HAR</li>
+        <li><strong>WASM modules</strong> - Download WebAssembly from HAR</li>
+        <li><strong>Data files</strong> - Extract JSON, XML, and more</li>
+        <li><strong>Fonts</strong> - Download web fonts from HAR</li>
+        <li><strong>Any file type</strong> - All resources captured in HAR</li>
+      </ul>
+      
+      <h3>Free HAR Extractor Online - Frequently Asked Questions</h3>
+      <p><strong>Is this HAR extractor free?</strong><br>
+      Yes! This is a completely <strong>free HAR file extractor online</strong>. No payments, no subscriptions, no limits.</p>
+      
+      <p><strong>How to download files from HAR?</strong><br>
+      Our <strong>free HAR to ZIP tool</strong> makes it easy to <strong>download files from HAR</strong>. Just open your HAR file and click "Download ZIP".</p>
+      
+      <p><strong>Is my data safe with this HAR extractor?</strong><br>
+      Absolutely! This is a <strong>client-side HAR extractor</strong> that processes everything locally. We never upload or store your HAR files.</p>
+      
+      <p><strong>Can I extract binary files from HAR?</strong><br>
+      Yes! Our <strong>HAR file opener online</strong> supports binary files including WASM, images, and compressed data.</p>
+      
+      <p><strong>Do I need to install anything?</strong><br>
+      No installation needed. This is a <strong>web-based HAR tool</strong> that works directly in your browser.</p>
+      
+      <p><strong>What is HAR format?</strong><br>
+      HAR (HTTP Archive) is a format used by web browsers and debugging tools to log network requests. Our <strong>HAR parser online</strong> helps you extract content from these archives.</p>
+      
+      <h3>Best Free Online HAR Extractor Tools</h3>
+      <p>HARExtract is recognized as one of the best <strong>free HAR extractor online</strong> tools available. Whether you're a developer debugging web applications, a security researcher analyzing network traffic, or someone who needs to <strong>extract files from HAR</strong> archives, our tool provides a simple, fast, and private solution.</p>
+      
+      <p>Try our <strong>free HAR to ZIP download</strong> tool today and experience the easiest way to <strong>extract files from HAR</strong> archives. No registration, no limitations, just a pure <strong>free HAR extractor</strong> that works offline.</p>
+    </div>
+
     <!-- Footer -->
     <div class="footer">
-      <span>HARExtract v<span id="version-footer"></span> · Client-side processing only</span>
+      <span>HARExtract v<span id="version-footer"></span> · Free HAR File Extractor Online · Client-side processing only</span>
       <span><a href="https://github.com/JC3/harextract" target="_blank">Based on JC3/harextract</a></span>
     </div>
   </div>
